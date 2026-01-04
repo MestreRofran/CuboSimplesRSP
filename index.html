@@ -1,0 +1,224 @@
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Cubo Mágico 3D - RSP (Imagem WEB GDrive)</title>
+    <style>
+        body { 
+            background: #111; color: white; margin: 0; 
+            display: flex; flex-direction: column; align-items: center; 
+            justify-content: center; height: 100vh; overflow: hidden;
+            font-family: 'Segoe UI', sans-serif; perspective: 1200px;
+        }
+        .interface { position: absolute; top: 20px; text-align: center; z-index: 10; background: rgba(0,0,0,0.8); padding: 15px; border-radius: 10px; border: 1px solid #333; }
+        
+        .scene {
+            width: 300px; height: 300px;
+            display: flex; align-items: center; justify-content: center;
+            transform-style: preserve-3d;
+        }
+
+        .cube-inner {
+            width: 0; height: 0;
+            position: relative;
+            transform-style: preserve-3d;
+            transform: rotateX(-25deg) rotateY(35deg);
+        }
+
+        .cubie {
+            position: absolute;
+            width: 99.5px; height: 99.5px;
+            transform-style: preserve-3d;
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            left: -49.75px; top: -49.75px; 
+        }
+
+        .face {
+            position: absolute; width: 100%; height: 100%;
+            background: #222; border: 1px solid #000;
+            box-sizing: border-box; background-size: 300px 300px;
+            backface-visibility: hidden;
+        }
+
+        .f-front  { transform: rotateY(0deg) translateZ(49.75px); }
+        .f-back   { transform: rotateY(180deg) translateZ(49.75px); }
+        .f-right  { transform: rotateY(90deg) translateZ(49.75px); }
+        .f-left   { transform: rotateY(-90deg) translateZ(49.75px); }
+        .f-top    { transform: rotateX(90deg) translateZ(49.75px); }
+        .f-bottom { transform: rotateX(-90deg) translateZ(49.75px); }
+
+        .controles { position: absolute; bottom: 30px; display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+        button {
+            background: #2980b9; border: none; padding: 10px 18px;
+            color: white; font-weight: bold; cursor: pointer; border-radius: 5px;
+            transition: 0.3s;
+        }
+        button.reset { background: #c0392b; }
+        button.auto { background: #27ae60; }
+        .speed-box { color: white; margin-top: 10px; display: flex; align-items: center; gap: 10px; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+    <div class="interface">
+        <h3 style="margin:0 0 10px 0">CUBO 3D Laís & Rofran</h3>
+        <div class="speed-box">
+            Velocidade Auto: 
+            <input type="range" id="speedRange" min="0" max="10" value="2">
+            <b id="speedValue">2</b>
+        </div>
+    </div>
+
+    <div class="scene">
+        <div class="cube-inner" id="cube"></div>
+    </div>
+
+    <div class="controles">
+        <button id="btnScramble" onclick="scramble()">MISTURAR</button>
+        <button id="btnReset" class="reset" onclick="solveCube()">REORDENAR</button>
+        <button id="btnAuto" class="auto" onclick="toggleAuto()">AUTO-ROTAÇÃO: OFF</button>
+    </div>
+
+    <script>
+        const container = document.getElementById('cube');
+        const speedInput = document.getElementById('speedRange');
+        const speedValue = document.getElementById('speedValue');
+        const btnAuto = document.getElementById('btnAuto');
+
+        // Função auxiliar para montar o link do Drive
+        function driveLink(id) {
+            return `https://drive.google.com/thumbnail?sz=w1000&id=${id}`;
+        }
+        
+        // Array com os IDs que você forneceu incorporados
+        const images = [
+            driveLink('1tr4-tuj1VpUK7PulXV2ZHLAOfrlaL34y'), // Imagem 1 (Original)
+            driveLink('19XLlXBJ4avejB_zXKUPrLmFjQIZZaPkX'), // Imagem 2
+            driveLink('1JpHOpHZ_QSiPEefTNalCU3snED4PFI-J'), // Imagem 3
+            driveLink('1PSarH8G_zHWevSXqdFonqnAhUi29iRE3'), // Imagem 4
+            driveLink('1iRxhw4Gv1etAHlD1iMYDfalZRUnlijlA'), // Imagem 5
+            driveLink('1nGk-nQG0eQobKI1lteTe2a8OAW98CnJj')  // Imagem 6
+        ];
+
+        let cubies = [];
+        let moveStack = [];
+        let isAutoRotating = false;
+        let isAnimating = false;
+        let rotX = -25, rotY = 35;
+        let isDragging = false, lastX, lastY;
+
+        function createCube() {
+            container.innerHTML = '';
+            cubies = [];
+            for (let x = -1; x <= 1; x++) {
+                for (let y = -1; y <= 1; y++) {
+                    for (let z = -1; z <= 1; z++) {
+                        const cubie = document.createElement('div');
+                        cubie.className = 'cubie';
+                        cubie.dataset.x = x; cubie.dataset.y = y; cubie.dataset.z = z;
+
+                        const faceClasses = ['f-front', 'f-back', 'f-right', 'f-left', 'f-top', 'f-bottom'];
+                        faceClasses.forEach((cls, i) => {
+                            const face = document.createElement('div');
+                            face.className = `face ${cls}`;
+                            face.style.backgroundImage = `url(${images[i]})`;
+                            
+                            let u, v;
+                            if (cls === 'f-front')  { u = x; v = y; }
+                            if (cls === 'f-back')   { u = -x; v = y; }
+                            if (cls === 'f-right')  { u = -z; v = y; }
+                            if (cls === 'f-left')   { u = z; v = y; }
+                            if (cls === 'f-top')    { u = x; v = z; }
+                            if (cls === 'f-bottom') { u = x; v = -z; }
+                            face.style.backgroundPosition = `${(u + 1) * 50}% ${(v + 1) * 50}%`;
+                            cubie.appendChild(face);
+                        });
+                        updatePos(cubie);
+                        container.appendChild(cubie);
+                        cubies.push(cubie);
+                    }
+                }
+            }
+        }
+
+        function updatePos(el) {
+            const tx = el.dataset.x * 99.5;
+            const ty = el.dataset.y * 99.5;
+            const tz = el.dataset.z * 99.5;
+            const rot = el.dataset.rot || "";
+            el.style.transform = `translate3d(${tx}px, ${ty}px, ${tz}px) ${rot}`;
+        }
+
+        function rotateLayer(axis, layer, angle, record = true) {
+            if (record) moveStack.push({ axis, layer, angle });
+            cubies.forEach(c => {
+                const pos = { x: parseFloat(c.dataset.x), y: parseFloat(c.dataset.y), z: parseFloat(c.dataset.z) };
+                if (Math.round(pos[axis]) === layer) {
+                    const rad = angle * (Math.PI / 180);
+                    const cos = Math.round(Math.cos(rad)), sin = Math.round(Math.sin(rad));
+                    let x = pos.x, y = pos.y, z = pos.z;
+                    if (axis === 'z') { [c.dataset.x, c.dataset.y] = [x * cos - y * sin, x * sin + y * cos]; }
+                    if (axis === 'x') { [c.dataset.y, c.dataset.z] = [y * cos - z * sin, y * sin + z * cos]; }
+                    if (axis === 'y') { [c.dataset.x, c.dataset.z] = [x * cos + z * sin, -x * sin + z * cos]; }
+                    c.dataset.rot = `rotate${axis.toUpperCase()}(${angle}deg) ${c.dataset.rot || ""}`;
+                    updatePos(c);
+                }
+            });
+        }
+
+        async function scramble() {
+            if (isAnimating) return;
+            isAnimating = true;
+            for (let i = 0; i < 8; i++) {
+                const axis = ['x', 'y', 'z'][Math.floor(Math.random() * 3)];
+                const layer = Math.floor(Math.random() * 3) - 1;
+                rotateLayer(axis, layer, 90);
+                await new Promise(r => setTimeout(r, 450));
+            }
+            isAnimating = false;
+        }
+
+        async function solveCube() {
+            if (isAnimating || moveStack.length === 0) return;
+            isAnimating = true;
+            while (moveStack.length > 0) {
+                const lastMove = moveStack.pop();
+                rotateLayer(lastMove.axis, lastMove.layer, -lastMove.angle, false);
+                await new Promise(r => setTimeout(r, 450));
+            }
+            isAnimating = false;
+        }
+
+        function toggleAuto() {
+            isAutoRotating = !isAutoRotating;
+            btnAuto.innerText = isAutoRotating ? "AUTO-ROTAÇÃO: ON" : "AUTO-ROTAÇÃO: OFF";
+        }
+
+        function autoRotateLoop() {
+            if (isAutoRotating && !isDragging) {
+                rotY += parseFloat(speedInput.value) * 0.3;
+                container.style.transform = `rotateX(${rotX}deg) rotateY(${rotY}deg)`;
+            }
+            requestAnimationFrame(autoRotateLoop);
+        }
+
+        speedInput.oninput = () => speedValue.innerText = speedInput.value;
+
+        document.addEventListener('mousedown', e => { 
+            if(e.target.tagName !== 'BUTTON' && e.target.tagName !== 'INPUT') {
+                isDragging = true; lastX = e.clientX; lastY = e.clientY; 
+            }
+        });
+        document.addEventListener('mousemove', e => {
+            if (!isDragging) return;
+            rotY += (e.clientX - lastX) * 0.5;
+            rotX -= (e.clientY - lastY) * 0.5;
+            container.style.transform = `rotateX(${rotX}deg) rotateY(${rotY}deg)`;
+            lastX = e.clientX; lastY = e.clientY;
+        });
+        document.addEventListener('mouseup', () => isDragging = false);
+
+        createCube();
+        autoRotateLoop();
+    </script>
+</body>
+</html>
