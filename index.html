@@ -9,14 +9,43 @@
             display: flex; flex-direction: column; align-items: center; 
             justify-content: center; height: 100vh; overflow: hidden;
             font-family: 'Segoe UI', sans-serif; perspective: 1200px;
-            touch-action: none; /* Impede o scroll da página ao mexer no cubo */
+            touch-action: none;
         }
-        .interface { position: absolute; top: 10px; text-align: center; z-index: 10; background: rgba(0,0,0,0.8); padding: 10px; border-radius: 10px; width: 90%; max-width: 400px; }
         
+        /* Interface Superior Ajustada */
+        .interface { 
+            position: absolute; top: 10px; text-align: center; z-index: 10; 
+            background: rgba(0,0,0,0.8); padding: 12px; border-radius: 12px; 
+            width: 92%; max-width: 380px; border: 1px solid #333;
+        }
+        
+        .controles-topo { 
+            display: flex; gap: 6px; justify-content: center; 
+            margin-top: 10px; margin-bottom: 10px; 
+        }
+
+        /* Botões Menores */
+        button {
+            background: #2980b9; border: none; padding: 8px 10px;
+            color: white; font-weight: bold; cursor: pointer; border-radius: 6px;
+            font-size: 10px; flex: 1; text-transform: uppercase;
+            transition: 0.2s;
+        }
+        button.reset { background: #c0392b; }
+        button.auto { background: #27ae60; }
+        button:active { transform: scale(0.95); }
+
+        .speed-box { 
+            color: #ccc; display: flex; align-items: center; 
+            justify-content: center; gap: 8px; font-size: 11px; 
+        }
+        
+        /* Configuração do Cubo */
         .scene {
             width: 280px; height: 280px;
             display: flex; align-items: center; justify-content: center;
             transform-style: preserve-3d;
+            margin-top: 60px; /* Espaço para não bater nos botões */
         }
 
         .cube-inner {
@@ -28,7 +57,7 @@
 
         .cubie {
             position: absolute;
-            width: 90px; height: 90px; /* Reduzi levemente para caber melhor no celular */
+            width: 90px; height: 90px;
             transform-style: preserve-3d;
             transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             left: -45px; top: -45px; 
@@ -41,42 +70,32 @@
             backface-visibility: hidden;
         }
 
-        /* Ajuste das posições das faces para o novo tamanho de 90px (metade é 45) */
         .f-front  { transform: rotateY(0deg) translateZ(45px); }
         .f-back   { transform: rotateY(180deg) translateZ(45px); }
         .f-right  { transform: rotateY(90deg) translateZ(45px); }
         .f-left   { transform: rotateY(-90deg) translateZ(45px); }
         .f-top    { transform: rotateX(90deg) translateZ(45px); }
         .f-bottom { transform: rotateX(-90deg) translateZ(45px); }
-
-        .controles { position: absolute; bottom: 20px; display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; width: 100%; }
-        button {
-            background: #2980b9; border: none; padding: 12px 15px;
-            color: white; font-weight: bold; cursor: pointer; border-radius: 8px;
-            font-size: 12px; min-width: 100px;
-        }
-        button.reset { background: #c0392b; }
-        button.auto { background: #27ae60; }
-        .speed-box { color: white; margin-top: 5px; display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 13px; }
     </style>
 </head>
 <body>
 
     <div class="interface">
-        <h4 style="margin:0 0 5px 0">Cubo Mágico 3D - Fotos Rofran & Laís</h4>
+        <h4 style="margin:0; font-size: 14px;">Cubo Rofran & Laís</h4>
+        
+        <div class="controles-topo">
+            <button onclick="scramble()">Misturar</button>
+            <button class="reset" onclick="solveCube()">Reordenar</button>
+            <button id="btnAuto" class="auto" onclick="toggleAuto()">Parar de Girar</button>
+        </div>
+
         <div class="speed-box">
-            Velocidade: <input type="range" id="speedRange" min="0" max="10" value="2">
+            Velocidade: <input type="range" id="speedRange" min="0" max="10" value="2" style="width: 100px;">
         </div>
     </div>
 
     <div class="scene">
         <div class="cube-inner" id="cube"></div>
-    </div>
-
-    <div class="controles">
-        <button onclick="scramble()">MISTURAR</button>
-        <button class="reset" onclick="solveCube()">REORDENAR</button>
-        <button id="btnAuto" class="auto" onclick="toggleAuto()">GIRAR CUBO</button>
     </div>
 
     <script>
@@ -97,7 +116,7 @@
 
         let cubies = [];
         let moveStack = [];
-        let isAutoRotating = false;
+        let isAutoRotating = true;
         let isAnimating = false;
         let rotX = -25, rotY = 35;
         let isDragging = false, lastX, lastY;
@@ -177,10 +196,9 @@
 
         function toggleAuto() {
             isAutoRotating = !isAutoRotating;
-            btnAuto.innerText = isAutoRotating ? "PARAR CUBO" : "GIRAR CUBO";
+            btnAuto.innerText = isAutoRotating ? "Parar" : "Girar";
         }
 
-        // LÓGICA DE MOVIMENTO (Mouse + Touch)
         function startDrag(e) {
             if(e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT') return;
             isDragging = true;
